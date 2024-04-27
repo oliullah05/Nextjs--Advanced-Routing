@@ -1,17 +1,33 @@
-import { NextResponse } from 'next/server'
-import { setTimeout } from 'timers/promises'
+import { NextResponse } from "next/server";
+import { match } from '@formatjs/intl-localematcher'
+import Negotiator from 'negotiator'
 
-// This function can be marked `async` if using `await` inside
-export async function middleware(request, event) {
-    event.waitUntil(
-      await  setTimeout(() => {
-            console.log("donee",77);
-        }, 5000)
-    )
-    // return NextResponse.redirect(new URL('/', request.url))
-    return NextResponse.rewrite(new URL('/', request.url))
+
+
+let defaultLocale = "en"
+let locales =["en","bn"]
+
+const getLocale = (request)=>{
+const accpectedLanguage = request.headers.get("accept-language") ?? undefined;
+let headers = { 'accept-language': accpectedLanguage }
+const languages = new Negotiator({ headers }).languages();
+match(languages, locales, defaultLocale)
 }
-export const config = {
-    // matcher: '/dashboard/:pa*',
-    matcher: '/',
+
+
+export function middleware (request){
+    // get the pathname from request url
+
+    const pathname = request.nextUrl.pathname
+
+    const pathnameIsMissingLocale = locales.every(locale=>!pathname.startWith(`/${locale}`) && !pathname.startWith(`/${locale}/`));
+
+    if(pathnameIsMissingLocale){
+        // detect user's preference & redirect with a locale with a path
+        const locale = getLocale(request);
+
+        return NextResponse.redirect(new URL(`${locale}/${pathname}`),request.url)
+    }
+
+    return NextResponse.next()
 }
